@@ -1,17 +1,15 @@
 exception Error of string
 
 type var = string
-type value = Int of int | Bool of Bool
+type value = Int of int | Bool of bool
 
 
-type state (var * value) list
+type state = (var * value) list
 
-let rec lookup (s: state) =
+let rec lookup (s: state) (k: var) =
   match s with
   | [] -> raise (Error "Variable not found")
-  | hd :: tl -> match hd with
-                | (v, n) -> if k = v then n else lookup tl k
-                | _ -> raise (Error "Invalid state")
+  | (v, n) :: tl -> if k = v then n else lookup tl k
 
 let initial_state = []
 
@@ -30,7 +28,6 @@ type aexp = Nat of int
           | Minus of (aexp * aexp)
           | Mult of (aexp * aexp)
           | AId of var
-          | BIs of var
           
 let rec eval_aexp (e : aexp)(s: state) =
   match e with
@@ -38,33 +35,29 @@ let rec eval_aexp (e : aexp)(s: state) =
   | Plus (e1, e2) -> 
       let n1 = convert_to_int(eval_aexp e1 s) in
       let n2 = convert_to_int(eval_aexp e2 s) in
-      let result = n1 + n2 in
-      Int result
+      Int (n1 + n2)
   | Minus (e1, e2) ->
       let n1 = convert_to_int(eval_aexp e1 s) in
       let n2 = convert_to_int(eval_aexp e2 s) in
-      let result = n1 - n2 in
-      Int result
+      Int (n1 - n2)
   | Mult (e1, e2) ->
       let n1 = convert_to_int(eval_aexp e1 s) in
       let n2 = convert_to_int(eval_aexp e2 s) in
-      let result = n1 * n2 in
-      Int result
-  | AId variable -> let v = lookup s variable in v
-
-let aexample = Plus (Nat 42, Nat 32)(*74*)
+      Int (n1 * n2)
+  | AId variable -> lookup s variable
 
 type bexp = True | False | Eq of (aexp * aexp) 
           | Not of bexp
           | And of (bexp * bexp)
+          | BId of var
 
-let rec eval_bexp s = function
-  | True -> Bool True
-  | False -> Bool False
+let rec eval_bexp (s: state) = function
+  | True -> Bool true
+  | False -> Bool false
   | Eq (a1, a2) -> 
       let n1 = convert_to_int(eval_aexp a1 s) in
       let n2 = convert_to_int(eval_aexp a2 s) in
-      if n1 = n2 then Bool True else Bool False
+      Bool (n1 = n2)
   | Not b -> 
       let v = convert_to_bool(eval_bexp s b) in
       if v = True then Bool False else Bool True
