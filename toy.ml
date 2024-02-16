@@ -60,10 +60,10 @@ let rec eval_bexp (s: state) = function
       Bool (n1 = n2)
   | Not b -> 
       let v = convert_to_bool(eval_bexp s b) in
-      if v = True then Bool False else Bool True
+      if v = true then Bool false else Bool true
   | And (b1, b2) ->
       let v1 = convert_to_bool(eval_bexp s b1) in
-      if v1 = False then Bool False else (
+      if v1 = false then Bool false else (
         let v2 = convert_to_bool(eval_bexp s b2) in
         Bool (v1 && v2))
   | BId variable -> lookup s variable
@@ -71,21 +71,26 @@ let rec eval_bexp (s: state) = function
 
 let bexample = Eq (Nat 42, Nat 32) (*False*)
 
-type cmd = Skip | Assign of (var * aexp) | Seq of (cmd * cmd) 
+type cmd = Skip | Assign of (var * aexp) | CmdSequence of (cmd * cmd) 
                 | If of (bexp * cmd * cmd) | While of (bexp * cmd)
     
-ket eval_cmd c s = 
+let rec eval_cmd c s = 
   match c with
   | Skip -> s
-  | Assign (x, v) -> (x, v) :: s
-  | Seq (c1, c2) -> let st1 = eval_cmd c1 s in
-                    let st2 = eval_cmd c2 st1 in
-                    st2
-  | If (c1, b1, b2) -> let result = (eval_bexp c1 s) in
-                      match result with
-                        | Int n -> raise (Error "Expected a boolean")
-                        | Bool b -> if b then eval_cmd b1 s else eval_cmd b2 s
-  | While (c1, loop) -> let result = (eval_bexp s c1) in
-                        (match result with
-                        | Int n -> raise (Error "Expected a boolean")
-                        | Bool b -> if b then (eval_cmd (Seq (loop, While (c1, loop))) ) else s)
+  | Assign (x, a) -> (x, eval_aexp a s) :: s
+  | CmdSequence (c1, c2) -> 
+      let st1 = eval_cmd c1 s in
+      eval_cmd c2 st1
+  | If (b, c1, c2) -> 
+      let result = eval_bexp s b in
+      (match result with
+       | Bool true -> eval_cmd c1 s
+       | Bool false -> eval_cmd c2 s
+       | _ -> raise (Error "Expected a boolean"))
+  | While (b, c) -> 
+      let result = eval_bexp s b in
+      (match result with
+       | Bool true -> eval_cmd (CmdSequence (c, While (b, c))) s
+       | Bool false -> s
+       | _ -> raise (Error "Expected a boolean"))
+
